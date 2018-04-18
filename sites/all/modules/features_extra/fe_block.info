@@ -1,0 +1,13 @@
+name = FE Block
+description = Build blocks and block settings as features.
+core = 7.x
+package = Features extra
+
+dependencies[] = block
+dependencies[] = ctools
+dependencies[] = features
+
+test_dependencies[] = block_class
+
+files[] = tests/features_extra_test_case.test
+files[] = tests/fe_block.test

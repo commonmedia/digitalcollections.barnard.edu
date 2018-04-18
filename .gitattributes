@@ -1,0 +1,5 @@
+* text=auto
+
+# Don't touch these, please.
+*.png binary
+*.jpg binary

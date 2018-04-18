@@ -1,0 +1,32 @@
+<?php
+
+/**
+ * Implements hook_preprocess().
+ */
+function bc_citation_preprocess(&$variables, $hook)
+{
+  // if object && object->cite add $variables['cite'] (or nvm...)
+}
+
+/**
+ * Implements hook_islandora_view_object().
+ */
+function bc_citation_islandora_view_object($object, $user, $page_number, $page_size = '')
+{
+  if ($mods = $object['MODS']->content) {
+    $cite = 'Citation for this item: ' . citeproc_bibliography_from_mods(citeproc_default_style(), $mods);
+    $object->cite = $cite;
+    $for_debug = array();
+    $for_debug['MODS'] = $mods;
+    $for_debug['CITE'] = $cite;
+    dpm($for_debug, 'Citation Debug Data', 'warning');
+  }
+}
+
+/**
+ * Implements hook_islandora_view_object_alter().
+ */
+function bc_citation_islandora_view_object_alter(&$object, &$rendered)
+{
+  $rendered['cite']['#markup'] = $object->cite ? $object->cite : NULL;
+}

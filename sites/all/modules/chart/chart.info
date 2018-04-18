@@ -1,0 +1,5 @@
+name = Chart API
+description = Google Chart API integration.
+package = Charting
+core = 7.x
+php = 5
