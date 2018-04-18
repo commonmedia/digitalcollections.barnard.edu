@@ -1,6 +1,4 @@
 <?php
-// $Id: node.tpl.php,v 1.12 2010/01/21 13:46:38 johnalbin Exp $
-
 /**
  * @file
  * Theme implementation to display a node.
@@ -90,47 +88,50 @@
       <?php print $exhibition; ?>
     <?php endif; ?>
     <div id="ex-themes">
-      <?php print $objects['theme_output']; ?>
+      <?php if (isset($ex_themes)): ?>
+        <?php print $ex_themes; ?>
+      <?php endif; ?>
     </div>
     <?php foreach ($objects as $i => $object): ?>
-      <div class="ex-obj" id="slide<?php print $i+1; ?>" data-theme="<?php print $object['theme']; ?>" data-layout="<?php print $object['layout'];?>">
+      <div class="ex-obj" id="slide<?php print $i + 1; ?>" data-theme="<?php print $object['theme']; ?>" data-layout="<?php print $object['layout'];?>">
         <div class="ex-images">
-          <?php foreach ($object['images'] as $j => $img): ?>
-            <?php // Large version of image, formatted using 'exhibit' image style. ?>
-            <div class="large-image" id="<?php print $j+1; ?>">
-              <?php print l(theme('image_style', array(
-                    'style_name' => 'exhibit',
-                    'path' => $img['uri'],
-                  )),
-                  variable_get('file_public_path', conf_path() . '/files') . '/' . file_uri_target($img['uri']),
-                  array(
-                    'attributes' => array(
-                      'rel' => 'slide' . strval($i+1),
-                      'class' => 'colorbox-load',
-                      'title' => $img['caption'],
-                    ),
-                    'html' => TRUE
-                  )
-                );
-              ?>
-              <br>
-              <?php // Image caption. ?>
-              <span class="caption">
-                <?php print $img['caption']; ?>
-                <?php // Object link (if available). ?>
-                <?php if ($img['pid']): ?>
-                  &nbsp;(<?php
-                    print l(t('View object'),
-                      "islandora/object/{$img['pid']}",
-                      array(
-                        'attributes' => array('target' => '_blank'),
-                      )
-                    );
-                  ?>)
-                <?php endif; ?>
-              </span>
-            </div> <?php // .large-image ?>
-          <?php endforeach; ?>
+          <?php if (isset($object['images'])): ?>
+            <?php foreach ($object['images'] as $j => $img): ?>
+              <div class="large-image" id="<?php print $j + 1; ?>">
+                <?php print l(theme('image_style', array(
+                      'style_name' => 'exhibit',
+                      'path' => $img['uri'],
+                    )),
+                    variable_get('file_public_path', conf_path() . '/files') . '/' . file_uri_target($img['uri']),
+                    array(
+                      'attributes' => array(
+                        'rel' => 'slide' . strval($i + 1),
+                        'class' => 'colorbox-load',
+                        'title' => $img['caption'],
+                      ),
+                      'html' => TRUE,
+                    )
+                  );
+                ?>
+                <br />
+                <?php // Image caption. ?>
+                <span class="caption">
+                  <?php print $img['caption']; ?>
+                  <?php // Object link (if available). ?>
+                  <?php if ($img['pid']): ?>
+                    &nbsp;(<?php
+                      print l(t('View object'),
+                        "islandora/object/{$img['pid']}",
+                        array(
+                          'attributes' => array('target' => '_blank'),
+                        )
+                      );
+                    ?>)
+                  <?php endif; ?>
+                </span>
+              </div> <?php // .large-image ?>
+            <?php endforeach; ?>
+          <?php endif; ?>
           <?php // Thumbnails. ?>
           <?php if (isset($object['thumbnail_output'])): ?>
             <div class="ex-thumbnails">

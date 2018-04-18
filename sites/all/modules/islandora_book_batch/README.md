@@ -1,4 +1,4 @@
-# Islandora Book Batch [![Build Status](https://travis-ci.org/Islandora/islandora_batch.png?branch=7.x)](https://travis-ci.org/Islandora/islandora_batch)
+# Islandora Book Batch [![Build Status](https://travis-ci.org/Islandora/islandora_book_batch.png?branch=7.x)](https://travis-ci.org/Islandora/islandora_book_batch)
 
 ## Introduction
 
@@ -112,7 +112,7 @@ Having problems or solved a problem? Check out the Islandora google groups for a
 
 Current maintainers:
 
-* [Daniel Aitken](https://github.com/qadan)
+* [Rosie Le Faive](https://github.com/rosiel)
 
 ## Development
 

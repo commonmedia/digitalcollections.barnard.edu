@@ -126,9 +126,6 @@ function islandora_ocr_derive_datastreams(AbstractDatastream $datastream, array 
   $ret = $ret && islandora_ocr_update_datastream($datastream->parent, $derivatives['OCR'], 'OCR');
   $ret = $ret && $derivatives['HOCR'];
   $ret = $ret && islandora_ocr_update_datastream($datastream->parent, $derivatives['HOCR'], 'HOCR');
-
-  $files = array_filter(array($source_file, $ocr_file, $hocr_file));
-  array_map('file_unmanaged_delete', $files);
   return $ret;
 }
 
@@ -183,10 +180,12 @@ function islandora_ocr_generate_derivatives(AbstractDatastream $datastream, arra
     drupal_unlink($old_source);
   }
 
-  return array(
+  $return = array(
     'OCR' => islandora_ocr_create_ocr($source_file, $options),
     'HOCR' => islandora_ocr_create_hocr($source_file, $options),
   );
+  drupal_unlink($source_file);
+  return $return;
 }
 
 /**
@@ -448,21 +447,25 @@ function islandora_ocr_imagemagick_convert($src, $dest, $args) {
  */
 function islandora_ocr_update_datastream(AbstractObject $object, $file, $dsid, $label = NULL, $mimetype = NULL, $control_group = 'M', $copy = TRUE) {
   $mime_detector = new MimeDetect();
-  if (empty($object[$dsid])) {
+  $ingest = !isset($object[$dsid]);
+  if ($ingest) {
     $ds = $object->constructDatastream($dsid, $control_group);
   }
   else {
     $ds = $object[$dsid];
   }
   $ds->setContentFromFile($file, $copy);
-  $ds->label = isset($label) ? $label : $dsid;
-  if (isset($mimetype)) {
+  $label = isset($label) ? $label : $dsid;
+  if ($ds->label != $label) {
+    $ds->label = $label;
+  }
+  $mimetype = isset($mimetype) ? $mimetype : $mime_detector->getMimetype($file);
+  if ($ds->mimetype != $mimetype) {
     $ds->mimetype = $mimetype;
   }
-  else {
-    $ds->mimetype = $mime_detector->getMimetype($file);
+  if ($ingest) {
+    $object->ingestDatastream($ds);
   }
-  $object->ingestDatastream($ds);
   file_unmanaged_delete($file);
   return TRUE;
 }

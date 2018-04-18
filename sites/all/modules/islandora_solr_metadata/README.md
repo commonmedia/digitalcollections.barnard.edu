@@ -44,7 +44,7 @@ It's to be noted that you can have a content model associated with more than one
 
 ## Documentation
 
-Further documentation for this module is available at [our wiki](https://wiki.duraspace.org/display/ISLANDORA/Islandora+Solr+Metadata).
+This module's documentation is also available at [our wiki](https://wiki.duraspace.org/display/ISLANDORA/Islandora+Solr+Metadata).
 
 ## Troubleshooting/Issues
 
@@ -57,7 +57,7 @@ Having problems or solved a problem? Check out the Islandora google groups for a
 
 Current maintainers:
 
-* [Nelson Hart](https://github.com/nhart)
+* [Rosie Le Faive](https://github.com/rosiel)
 
 ## Development
 

@@ -43,6 +43,10 @@ function islandora_solr_admin_index_settings($form, &$form_state) {
       ));
       $solr_avail = FALSE;
     }
+    elseif (preg_match('/^([^\/]+):/', $solr_url) === 0) {
+      form_set_error('islandora_solr_url', t('Port number required in Solr URL.'));
+      $solr_avail = FALSE;
+    }
     else {
       // Check if Solr is available.
       $solr_avail = islandora_solr_ping($solr_url);
@@ -93,7 +97,7 @@ function islandora_solr_admin_index_settings($form, &$form_state) {
     '#title' => t('Solr URL'),
     '#size' => 80,
     '#weight' => -1,
-    '#description' => t('The URL of the Solr installation. Defaults to localhost:8080/solr.'),
+    '#description' => t('The URL of the Solr installation. Defaults to localhost:8080/solr.  Port number (e.g. ":8080") is required.'),
     '#default_value' => $solr_url,
     '#required' => TRUE,
     '#ajax' => array(
@@ -1088,6 +1092,12 @@ function islandora_solr_admin_breadcrumbs_settings(array $form, array &$form_sta
     one per line. Will search top to bottom and stop on the first hit.'),
     '#default_value' => variable_get('islandora_solr_breadcrumbs_parent_fields', "RELS_EXT_isMemberOfCollection_uri_ms\r\nRELS_EXT_isMemberOf_uri_ms"),
   );
+  $form['islandora_solr_breadcrumbs_admin']['islandora_solr_breadcrumbs_add_collection_query'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Append query breadcrumbs to collection breadcrumbs'),
+    '#description' => t('Appends any additional available breadcrumbs, such as facet breadcrumbs, to the standard collection hierarchy breadcrumbs, if using the Solr collection query backend.'),
+    '#default_value' => variable_get('islandora_solr_breadcrumbs_add_collection_query', FALSE),
+  );
   return system_settings_form($form);
 }
 
@@ -1344,11 +1354,18 @@ function _islandora_solr_admin_settings_submit($form, &$form_state) {
               }
             }
             if (module_exists('i18n_string')) {
-              if (isset($solr_field_settings['label'])) {
-                i18n_string_update("islandora_solr:field_settings:$field_type:label:$solr_field", $solr_field_settings['label']);
-              }
-              else {
-                i18n_string_remove("islandora_solr:field_settings:$field_type:label:$solr_field");
+              $to_i18nize = array(
+                'label',
+                'boolean_facet_true_replacement',
+                'boolean_facet_false_replacement',
+              );
+              foreach ($to_i18nize as $string_type) {
+                if (isset($solr_field_settings[$string_type])) {
+                  i18n_string_update("islandora_solr:field_settings:$field_type:$string_type:$solr_field", $solr_field_settings[$string_type]);
+                }
+                else {
+                  i18n_string_remove("islandora_solr:field_settings:$field_type:$string_type:$solr_field");
+                }
               }
             }
             $insert_values[] = array(
@@ -1718,6 +1735,9 @@ function _islandora_solr_handle_solr_field_settings($solr_field_settings = NULL,
           'date_filter_datepicker_enabled',
           'date_filter_datepicker_range',
           'pid_object_label',
+          'boolean_facet_true_replacement',
+          'boolean_facet_false_replacement',
+          'sort_by',
         ));
         $relevant_values = array_intersect_key($solr_field_settings, $fields);
         $relevant_values['label'] = isset($relevant_values['label']) ?
@@ -2058,6 +2078,16 @@ function islandora_solr_admin_settings_facet_fields($form, &$form_state, $variab
     '#default_value' => isset($values['label']) ? $values['label'] : '',
     '#description' => t('A human-readable name.'),
   );
+  $form['options']['sort_by'] = array(
+    '#type' => 'radios',
+    '#title' => t('Sort by'),
+    '#default_value' => isset($values['sort_by']) ? $values['sort_by'] : 'count',
+    '#options' => array(
+      'count' => t('Count of facet (numerically)'),
+      'index' => t('Text labels (alphabetically)'),
+    ),
+    '#description' => t('Facets can be sorted by text label or the count of the facet. If you sort by text labels AND replace PID with object label your sort order is not guaranteed.'),
+  );
 
   if (islandora_solr_is_date_field($solr_field)) {
     // Add in defaults, to avoid isset() tests.
@@ -2181,6 +2211,31 @@ function islandora_solr_admin_settings_facet_fields($form, &$form_state, $variab
         'visible' => array(
           ':input[name="date_filter_datepicker_enabled"]' => array('checked' => TRUE),
         ),
+      ),
+    );
+  }
+  elseif (islandora_solr_is_boolean_field($solr_field)) {
+    // Defaults.
+    $values += array(
+      'boolean_facet_true_replacement' => '',
+      'boolean_facet_false_replacement' => '',
+    );
+    $form['options']['boolean_facet'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Boolean Facet Options'),
+      '#collapsible' => FALSE,
+      'blurb' => array(
+        '#markup' => t('Enter replacement values for the labels of TRUE and FALSE results for boolean facets. Leaving a field empty will cause that result to show up as "true" or "false", respectively, which may be less than clear to the end user.'),
+      ),
+      'boolean_facet_true_replacement' => array(
+        '#type' => 'textfield',
+        '#title' => t('Replacement for TRUE values'),
+        '#default_value' => $values['boolean_facet_true_replacement'],
+      ),
+      'boolean_facet_false_replacement' => array(
+        '#type' => 'textfield',
+        '#title' => t('Replacement for FALSE values'),
+        '#default_value' => $values['boolean_facet_false_replacement'],
       ),
     );
   }

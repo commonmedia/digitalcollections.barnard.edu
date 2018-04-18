@@ -13,9 +13,13 @@ Commands are inspired by a simple Git workflow (fetch, push, delete).
 
 * `drush islandora_datastream_crud_fetch_pids --user=admin --collection=islandora:sp_basic_image_collection --pid_file=/tmp/imagepids.txt`
 * `drush islandora_datastream_crud_fetch_datastreams --user=admin --pid_file=/tmp/imagepids.txt --dsid=MODS --datastreams_directory=/tmp/imagemods`
-* `drush islandora_datastream_crud_push_datastreams --user=admin --datastreams_source_directory=/tmp/imagemods_modified --datastreams_crud_log=/tmp/crud.log`
+* `drush islandora_datastream_crud_push_datastreams --user=admin --datastreams_mimetype=image/jpeg --datastreams_source_directory=/tmp/imagemods_modified --datastreams_crud_log=/tmp/crud.log`
 * `drush islandora_datastream_crud_delete_datastreams --user=admin --dsid=FOO --pid_file=/tmp/delete_foo_from_these_objects.txt`
 * `drush islandora_datastream_crud_generate_derivatives --user=admin --source_dsid=OBJ --pid_file=/tmp/regenerate_derivatives_for_these_objects.txt`
+
+Note that you can include Drush's `-y` option to bypass confirmation prompts. This is useful if you are running Datastream CRUD in a `nohup` or scripted environment.
+
+If you would prefer to avoid using Drush, [Islandora Datastreams Input/Output](https://github.com/ulsdevteam/islandora_datastreams_io) provides a way to run Datastream CRUD from within Drupal's administrative user interface.
 
 ## Fetching PIDs
 
@@ -23,12 +27,13 @@ The `islandora_datastream_crud_fetch_pids` command provides several options for 
 
 * `--namespace`: Lets you specify a namespace.
 * `--collection`: Lets you specify a collection PID.
+* `--is_member_of`: Lets you specify relationships to another parent object PID such as a Newspaper or Book.
 * `--content_model`: Lets you specify a content model PID.
 * `--with_dsid`: Lets you specify the ID of a datastream that objects must have.
 * `--without_dsid`: Lets you specify the ID of a datastream that objects must not have.
-* `--solr_query`: A raw Solr query. For example, `--solr_query=*:*` will retrieve all the PIDs in your repository. `--solr_query=dc.title:foo` will retrieve all the PIDs of objects that have the string 'foo' in their DC title fields.
+* `--solr_query`: A raw Solr query. For example, `--solr_query=*:*` will retrieve all the PIDs in your repository; `--solr_query=dc.title:foo` will retrieve all the PIDs of objects that have the string 'foo' in their DC title fields; `--solr_query="RELS_EXT_isMemberOf_uri_s:info\:fedora/dailyplanet\:1"`will retrieve all newspaper issues that are part of the newspaper "dailyplanet:1".
 
-The `--collection`, `--content_model`, `--namespace`, `--with_dsid`, `--without_dsid`, and `--solr_query` options, if present, are ANDed together, so you can, for example, retrieve PIDs of objects that have a specific namespace within a collection. If the `--solr_query` option is used, it overrides `--content_model'`, `--namespace`, `--with_dsid`, `--without_dsid`, and `--collection`.
+The `--collection`, `--is_member_of`, `--content_model`, `--namespace`, `--with_dsid`, `--without_dsid`, and `--solr_query` options, if present, are ANDed together, so you can, for example, retrieve PIDs of objects that have a specific namespace within a collection. If the `--solr_query` option is used, it overrides `--content_model'`, `--namespace`, `--with_dsid`, `--without_dsid`, and `--collection`.
 
 You typically save the fetched PIDs to a PID file, whose path is specified using the `--pid_file` option. See 'The PID file' section below for more information.
 
@@ -46,12 +51,14 @@ Steps 1, 2, and 5 involve running the appropriate drush command. Steps 3 and 4 d
 
 ### Step 3
 
-This module doesn't do anything in Step 3 (update or modify the fetched datastream files). That's up to you. For example, if you fetched all of the TIFF OBJ datastreams from a collection, you could correct the color in the TIFFs using Photoshop, and then push them to your repository. Two sample scripts that modify datastream files are included in the `scripts` directory:
+This module doesn't do anything in Step 3 (update or modify the fetched datastream files). That's up to you. For example, if you fetched all of the TIFF OBJ datastreams from a collection, you could correct the color in the TIFFs using Photoshop, and then push them to your repository. Three sample scripts that modify datastream files are included in the `scripts` directory:
 
 * a PHP script that appends an element/fragment to a set of XML files
 * a shell script that adds a label/watermark to a set of image files
+* a PHP script that converts JPEG2000 files from those extracted from CONTENTdm to ones usable in Islandora 
+* a PHP script that performs search and replace on a directory of files
 
-You may not find a use for these two scripts, but they illustrate the kinds of things you may want to do to datastream files.
+You may not find a use for these three scripts, but they illustrate the kinds of things you may want to do to datastream files.
 
 ### Step 4
 
@@ -82,6 +89,8 @@ the following command would add three datastreams (DS1, DS2, and DS3, all with a
 
 Another subset of the general workflow in which you do not fetch datastreams is to delete a datastream from a set of objects. To do this, you only need to specify the objects you want to delete the datastream from in the PID file, and the datastream ID you want to delete.
 
+Note that you cannot delete the DC datastream. Fedora Commons requires that each object has a DC datastream.
+
 ### Exporting datastreams
 
 If you want to export a set of datastreams from our repository, the `islandora_datastream_crud_fetch_datastreams` command provides a simple way to do so.
@@ -94,8 +103,28 @@ This module offers a command, `islandora_datastream_crud_generate_derivatives`, 
 
 Note that this command does not download datastream files from your repository; it generates the derivatives directly from the datastream identified by the `--source_dsid` option.
 
+`islandora_datastream_crud_generate_derivatives` provides two options to let you limit what derivatives are generated:
+
+* e.g., `--dest_dsids=TN`
+* e.g., `--skip_dsids=OCR,TECHMD`
+
+The former restricts the generated derivatives to a comma-separated list of DSIDs, and the latter generates all derivatives other than the ones specified in a comma-separated list. The two options are meant to be mutually exclusive and should not be used together.
+
 You can also trigger derivative generation/regeneration on objects if you push OBJ datastreams up. A plausible scenario where you may want to do this is if a batch ingest fails during the derivative generation phase. By fetching a list of PIDs using the `--without_dsid` option with the ID of a derivative datastream, you can then fetch those objects' OBJ datastreams and push them back up. Not the most efficient way to trigger datastream generation. You should use this option if you want to replace the source datastream; use `islandora_datastream_crud_generate_derivatives` if just want to regenerate derivatives from an existing source datastream. 
 
+### Updating DC datastreams by pushing other XML datastreams
+
+Islandora's default behavior is to not regenerate an object's DC datastream when its MODS datastream is replaced. Islandora Datastream CRUD lets you override this behavior by regenerating your objects' DC datastreams when pushing MODS or other XML datastreams. When you push datastream files that end in '.xml', you will be prompted to confirm that you want to regenerate your DC:
+
+`Do you want to update each object's DC datastream using the new MODS? (y/n)`
+
+If you respond `y`, the DC datastream of each object represented by a pushed MODS datastream will be regenerated; if you reply n, the MODS files will be pushed without regenerating the corresponding DC datastreams, following Islandora's default behavior. The MODS-to-DC XLST stylesheet provided by the Islandora XML Forms module will be used to generate the new DC datastreams unless you provide an alternative path to a stylesheet using the `--dc_transform` option.
+
+If you are pushing non-MODS XML datastream files and want to regenerate the corresponding objects' DC datastreams from the pushed files, you will need to provide your own XSLT transform by specifying its absolute path with the `--dc_transform` parameter, e.g.,:
+
+`--dc_transform=/path/to/my/custom/ddi_to_dc_stylesheet.xsl`
+
+If you are not running Islandora Datastream CRUD interactively but from within a script, provide the standard Drush option `-y` to answer "yes" to all Drush prompts. If you do not want to regenerate your DC datastreams, include the option `--update_dc=0`.
 
 ### Reverting datastream versions
 
@@ -152,10 +181,26 @@ Islandora reacts to the replacement of a datastream, the deletion of a datastrea
 * Datastreams are versioned in Islandora. Pushing datastreams results in the pushed file content becoming the latest version of the specified datastream. It is possible to revert to a previous version of a datastream using the 'revert' option within an object's datastream management tab, but this module does *not* provide a simple way to roll back or revert changes made as a result of issuing `islandora_datastream_crud_push_datastreams`. To be clear: If you push 10,000 MODS datastreams to your repository using this module and you discover that each one contains a small problem, you'll need to revert those 10,000 datastreams, either manually or using the method described above. Or, push a new set of MODS XML datastream files that do not have the same problem.
 * Replacing MODS and other datastreams indexed in Solr triggers a reindexing of that object. Deleting datastreams that are indexed in Solr updates the index to remove the indexed content of the deleted datastreams.
 * Replacing the OBJ datastream, or any other datastream from which other datastreams are derived, triggers derivative regeneration as defined by solution packs and other modules. If you do not want derivatives generated as a result of pushing datastreams to your repository, enable "Defer derivative generation during ingest" option in your site's Islandora > Configuration menu. If you enable this option, don't forget to disable after your have pushed your datastreams.
-* `islandora_datastream_crud_push_datastreams` does not change the MIME type of the datastream unless the `--datastreams_mimetype` is present.
+* `islandora_datastream_crud_push_datastreams` does not change the MIME type of the datastream unless the `--datastreams_mimetype` is present. Also, and very importantly, it does not assign a default MIME type when adding the datastream. This means that you must include the `--datastreams_mimetype` option if you are pushing datastreams that do not already exist in the target objects.
 * `hook_islandora_datastream_modified()`, `hook_islandora_datastream_ingested()`, `hook_islandora_datastream_purged()`, and their content-model-specific variations are fired when datastreams are replaced, created, and deleted. The effects of this depend on what modules are enabled on your Islandora site.
 
-In general, the behaviors described here are the same regardless of whether the datastream is replaced using the "Replace" link provided in each object's Manage > Datastreams tab (or using the "+ Add a datastream" link), or with this module. However, Islandora Datastream CRUD lets you replace the same datastream across a lot of objects at once, which amplifies the load on your Islandora stack compared to replacing a datastream on a single object.
+In general, the behaviors described here are the same regardless of whether the datastream is replaced using the "Replace" link provided in each object's Manage > Datastreams tab (or using the "+ Add a datastream" link), or with this module. However, Islandora Datastream CRUD lets you replace the same datastream across a lot of objects at once, which amplifies the load on your Islandora stack compared to replacing a datastream on a single object. To determine what the potential effect on your site might be, you should update datastreams in small sets before moving on to updating large numbers of datastreams at once.
+
+## Modifying object properties
+
+Even though this module is called Islandora *Datastream* CRUD, it can also modify object properties. It can do this in two ways:
+
+* One of `islandora_datastream_crud_push_datastreams`'s options, `--update_object_label`, will modify the parent object's label. This option only applies when you are pushing DC datastreams; it updates the object's label using the value in the DC title element. This option will likely be deprecated in the future in favor of the `islandora_datastream_crud_update_object_properties` command.
+* Via the `islandora_datastream_crud_update_object_properties` command, which can take the following options:
+  * `--pid_file`: Required. Absolute path to the file that lists PIDs for objects whose properties you want to update.
+  * `--owner`: Optional. The owner you want to assign to objects identified in `--pid_file`.
+  * `--state`: Optional. The state you want to assign to objects identified in `--pid_file`. Must be one of A (for 'active'), I (for 'inactive'), or D for 'deleted').
+  * `--update_object_label`: Optional. This option does not take a value, but it is accompanied by the following two other options:
+    * `--source_dsid`: Optional; default is 'MODS'. Can be any XML datastream ID.
+    * `--source_xpath`: Optional; default is "//mods:titleInfo/title". An XPath expression identifying the value you want to use as the object label. Note that if your XPath expression should be wrapped in double quotes (`"expression"`) so that Drush interacts with the shell properly, e.g., `--source_xpath="//mods:titleInfo[not(@type='alternative')]/mods:title"`.
+  * `--datastreams_crud_log`: Optional. Absolute path to a log file. If present, the PID, old value of the property, and new value of the property will be written to the specified file.
+
+Updating object properties such as owner, state, and label will fire all of the 'hook_islandora_object_modified()' and related implementations enabled on your site. The effects of this are the same as if you updated an object's label or state within its Manage > Properties tab. However, Islandora Datastream CRUD lets you update the properties of a lot of objects at once, which amplifies the load on your Islandora stack compared to updating a property of a single object. TL;DR is it's proobably best to update object properties in small sets and observe any effects the update may have before moving on to updating large numbers of objects at once.
 
 # Maintainer
 
@@ -163,13 +208,12 @@ In general, the behaviors described here are the same regardless of whether the 
 
 ## Development and feedback
 
-Pull requests are welcome, as are use cases and suggestions. Scripts that do the work of updating datastreams, especially for MODS datastreams, are also welcome.
+Pull requests are welcome, as are use cases and suggestions. Please open an issue before creating a pull request.
+
+Scripts that do the work of updating datastreams, especially for MODS datastreams, are also welcome.
 
 ## Wishlist
 
-* A graphical user interface
-* Use the Drupal Batch framework, like the Islandora Batch modules do
-* Add automated tests
 * The `--collection` option for `islandora_datastream_crud_fetch_pids` only retrieves immediate children of the specified collection. If this is a problem for you, and all of the objects in your collection use the same namespace, use the `--namespace` option to get your PIDs instead of the `--collection` option.
 * Does not work with datastreams in the (R)edirect and (E)xternal Referenced control groups - use cases are welcome.
 

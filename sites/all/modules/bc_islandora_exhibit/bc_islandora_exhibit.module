@@ -26,7 +26,8 @@ function bc_islandora_exhibit_theme() {
  */
 function bc_islandora_exhibit_preprocess_node(&$variables) {
   if (isset($variables['node']) && $variables['node']->type == 'exhibition') {
-    $variables['objects'] = _bc_islandora_prepare_exhibit_objects($variables['node']);
+    $object_data = _bc_islandora_prepare_exhibit_objects($variables['node']);
+    $variables['ex_themes'] = $object_data['theme_output'];
+    $variables['objects'] = $object_data['objects'];
   }
 }
-

@@ -25,19 +25,22 @@ function islandora_datastream_crud_drush_command() {
         'description' => 'The namespace of the objects you want to update.',
       ),
       'collection' => array(
-        'description' => 'The PID of the collection from which to select the objects.' ,
+        'description' => 'The PID of the collection from which to select the objects.',
+      ),
+      'is_member_of' => array(
+        'description' => 'The PID of the parent with the isMemberOf relationship.',
       ),
       'with_dsid' => array(
-        'description' => 'Limit to objects that have a datastream with the specified datastream ID.' ,
+        'description' => 'Limit to objects that have a datastream with the specified datastream ID.',
       ),
       'without_dsid' => array(
-        'description' => 'Limit to objects that do not have a datastream with the specified datastream ID.' ,
+        'description' => 'Limit to objects that do not have a datastream with the specified datastream ID.',
       ),
       'solr_query' => array(
-        'description' => 'A raw Solr query. If the --solr_query option is present, it overrides --content_model, --namespace, and --collection.' ,
+        'description' => 'A raw Solr query. If the --solr_query option is present, it overrides --content_model, --namespace, and --collection.',
       ),
       'pid_file' => array(
-        'description' => 'Absolute path to the file where you want the PID list to be saved. If absent, PIDs will be written to STDOUT.' ,
+        'description' => 'Absolute path to the file where you want the PID list to be saved. If absent, PIDs will be written to STDOUT.',
       ),
     ),
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_LOGIN,
@@ -51,25 +54,25 @@ function islandora_datastream_crud_drush_command() {
     ),
     'options' => array(
       'dsid' => array(
-        'description' => 'Datastream ID.' ,
+        'description' => 'Datastream ID.',
         'required' => TRUE,
       ),
       'pid_file' => array(
-        'description' => 'Absolute path to the file that lists PIDs for objects you want to fetch datastreams from.' ,
+        'description' => 'Absolute path to the file that lists PIDs for objects you want to fetch datastreams from.',
         'required' => TRUE,
       ),
       'datastreams_directory' => array(
-        'description' => 'Absolute path to the directory where you want the datastream files to be saved.' ,
+        'description' => 'Absolute path to the directory where you want the datastream files to be saved.',
         'required' => TRUE,
       ),
       'datastreams_extension' => array(
-        'description' => "Optional. The file extension, without the period, to give the datastream files. If absent, Islandora will assign an extension based on the datastream's MIME type." ,
+        'description' => "Optional. The file extension, without the period, to give the datastream files. If absent, Islandora will assign an extension based on the datastream's MIME type.",
       ),
       'datastreams_version' => array(
-        'description' => 'Optional. The version number of the datastream. 0 is the current version (the default, so you wouldn\'t normally specify it), 1 is the previous version, 2 is the version before that, etc.' ,
+        'description' => 'Optional. The version number of the datastream. 0 is the current version (the default, so you wouldn\'t normally specify it), 1 is the previous version, 2 is the version before that, etc.',
       ),
       'pause' => array(
-        'description' => 'Optional. Number of seconds to pause before fetching the next datastream.' ,
+        'description' => 'Optional. Number of seconds to pause before fetching the next datastream.',
       ),
     ),
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_LOGIN,
@@ -79,32 +82,42 @@ function islandora_datastream_crud_drush_command() {
     'description' => 'Add or replace datastrems. This operation writes datastreams to objects in your repository.',
     'examples' => array(
       'drush islandora_datastream_crud_push_datastreams --user=admin --datastreams_source_directory=/tmp/imagecollection_objs',
-      'drush islandora_datastream_crud_push_datastreams --user=admin --datastreams_source_directory=/tmp/imagecollection_objs --pid_fille=/tmp/wanted_pids.txt',
-      'drush islandora_datastream_crud_push_datastreams --user=admin --datastreams_directory=/tmp/my_new_datastreams --pid_fille=/tmp/pids_for_target_objects.txt --datastream_label="My new datastream" --datastream_mimetype=application/foo',
+      'drush islandora_datastream_crud_push_datastreams --user=admin --datastreams_source_directory=/tmp/imagecollection_objs --pid_file=/tmp/wanted_pids.txt',
+      'drush islandora_datastream_crud_push_datastreams --user=admin --datastreams_directory=/tmp/my_new_datastreams --pid_file=/tmp/pids_for_target_objects.txt --datastream_label="My new datastream" --datastream_mimetype=application/foo',
     ),
     'options' => array(
       'datastreams_source_directory' => array(
-        'description' => 'Absolute path to the directory where updated datastream files are stored.' ,
+        'description' => 'Absolute path to the directory where updated datastream files are stored.',
         'required' => TRUE,
       ),
       'pid_file' => array(
-        'description' => 'Optional. Absolute path to the file that lists PIDs for objects you want to push datastreams to. If absent, all of the datastreams in the source directory will be pushed' ,
+        'description' => 'Optional. Absolute path to the file that lists PIDs for objects you want to push datastreams to. If absent, all of the datastreams in the source directory will be pushed',
       ),
       'datastreams_mimetype' => array(
-        'description' => 'Optional. The MIME type to apply to the new datastreams. If absent, the existing MiME type is used.' ,
+        'description' => 'Optional. The MIME type to apply to the new datastreams. If absent, the existing MiME type is used.',
       ),
       'datastreams_label' => array(
-        'description' => 'Optional. The label to apply to the new datastreams. Enclose in quotation marks. If absent and the datastream exists, the original label is retained. If absent and the datastream is being created, no labl is applied.' ,
+        'description' => 'Optional. The label to apply to the new datastreams. Enclose in quotation marks. If absent and the datastream exists, the original label is retained. If absent and the datastream is being created, no label is applied.',
       ),
       'datastreams_crud_log' => array(
         'description' => 'Optional. Absolute path to the CRUD log. If present, the PID, DSID, and a message will be written to the specified file.' ,
       ),
       'pause' => array(
-        'description' => 'Optional. Number of seconds to pause before pushing the next datastream.' ,
+        'description' => 'Optional. Number of seconds to pause before pushing the next datastream.',
       ),
       'datastreams_revert' => array(
-        'description' => 'Optional. Include if the push is to revert datastream versions.' ,
+        'description' => 'Optional. Include if the push is to revert datastream versions.',
         'value' => 'optional',
+      ),
+      'update_object_label' => array(
+        'description' => 'Optional. Include if the push of DC datastream is to update each object\'s label derived from DC title element. Will be deprecated at end of 2017 as described in issue 38.',
+        'value' => 'optional',
+      ),
+      'update_dc' => array(
+        'description' => 'Optional. Set to 0 (zero) if you do not want to update your DC datastreams from the MODS or other XML datastreams ou are pushing. Default is 1, but you will be prompted to confirm the DC update.',
+      ),
+      'dc_transform' => array(
+        'description' => 'Optional. Absolute path to the XSLT stylesheet to use for regenerating DC from MODS or other XML datastream.',
       ),
     ),
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_LOGIN,
@@ -118,18 +131,18 @@ function islandora_datastream_crud_drush_command() {
     ),
     'options' => array(
       'pid_file' => array(
-        'description' => 'Absolute path to the file that lists PIDs for objects you want to delete datastreams from.' ,
+        'description' => 'Absolute path to the file that lists PIDs for objects you want to delete datastreams from.',
         'required' => TRUE,
       ),
       'dsid' => array(
-        'description' => 'Datastream ID.' ,
+        'description' => 'Datastream ID.',
         'required' => TRUE,
       ),
       'datastreams_crud_log' => array(
-        'description' => 'Optional. Absolute path to the CRUD log. If present, the PID, DSID, and a message will be written to the specified file.' ,
+        'description' => 'Optional. Absolute path to the CRUD log. If present, the PID, DSID, and a message will be written to the specified file.',
       ),
       'pause' => array(
-        'description' => 'Optional. Number of seconds to pause before deleting the next datastream.' ,
+        'description' => 'Optional. Number of seconds to pause before deleting the next datastream.',
       ),
     ),
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_LOGIN,
@@ -143,18 +156,61 @@ function islandora_datastream_crud_drush_command() {
     ),
     'options' => array(
       'pid_file' => array(
-        'description' => 'Absolute path to the file that lists PIDs for objects you want to delete datastreams from.' ,
+        'description' => 'Absolute path to the file that lists PIDs for objects you want to delete datastreams from.',
         'required' => TRUE,
       ),
       'source_dsid' => array(
-        'description' => 'The source datastream ID.' ,
+        'description' => 'The source datastream ID.',
         'required' => TRUE,
       ),
+      'dest_dsids' => array(
+        'description' => 'Optional. A comma-separated list of datastream IDs to generate. If absent, all derivatives will be generated.',
+      ),
+      'skip_dsids' => array(
+        'description' => 'Optional. A comma-separated list of datastream IDs to skip. If absent, all derivatives will be generated.',
+      ),
       'datastreams_crud_log' => array(
-        'description' => 'Optional. Absolute path to the CRUD log. If present, the PID, DSID, and a message will be written to the specified file.' ,
+        'description' => 'Optional. Absolute path to the CRUD log. If present, the PID, DSID, and a message will be written to the specified file.',
       ),
       'pause' => array(
-        'description' => 'Optional. Number of seconds to pause before deleting the next datastream.' ,
+        'description' => 'Optional. Number of seconds to pause between objects.',
+      ),
+    ),
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_LOGIN,
+  );
+
+  $items['islandora_datastream_crud_update_object_properties'] = array(
+    'aliases' => array('idcrudop'),
+    'description' => 'Update object properties.',
+    'examples' => array(
+      'drush islandora_datastream_crud_update_object_properties --user=admin --pid_file=/tmp/update_these_objects.txt',
+    ),
+    'options' => array(
+      'pid_file' => array(
+        'description' => 'Absolute path to the file that lists PIDs for objects whose properties you want to update.',
+        'required' => TRUE,
+      ),
+      'owner' => array(
+        'description' => "The object's owner.",
+      ),
+      'state' => array(
+        'description' => "The object's state (A/I/D).",
+      ),
+      'update_object_label' => array(
+        'description' => "Include if you want to update the object's label from either a MODS or DC element.",
+        'value' => 'optional' ,
+      ),
+      'source_dsid' => array(
+        'description' => "Tells the 'update_object_label' option which datastream to use as the source of the label.",
+      ),
+      'source_xpath' => array(
+        'description' => "Xpath expression that tells the 'update_object_label' option where to find the label value. Must be wrapped in double quotation marks.",
+      ),
+      'concat_string' => array(
+        'description' => "String used to join repeated values retrieved by --source_xpath. Default is a single space.",
+      ),
+      'datastreams_crud_log' => array(
+        'description' => 'Optional. Absolute path to the CRUD log. If present, the PID, old value of the property, and new value of the property will be written to the specified file.',
       ),
     ),
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_LOGIN,
@@ -170,6 +226,16 @@ function drush_islandora_datastream_crud_fetch_pids() {
   if (!module_exists('islandora_solr')) {
     drush_set_error('SOLR_SEARCH_NOT_AVAILABLE',
       dt('Sorry, Islandora Solr Search not enabled.'));
+  }
+
+  // If applicable, check that the specified parent object exists and
+  // is accessible; if it's not, exit with an error.
+  if (drush_get_option('is_member_of')) {
+    if (!islandora_object_load(drush_get_option('is_member_of'))) {
+      drush_set_error('PARENT_NOT_FOUND',
+        dt('The specified parent object (!is_member_of) is not found or is not accessible.',
+        array('!is_member_of' => drush_get_option('is_member_of'))));
+    }
   }
 
   // If applicable, check that the specified collection object exists and
@@ -195,6 +261,9 @@ function drush_islandora_datastream_crud_fetch_pids() {
   // Build the Solr query.
   $query = '';
   $query_parts = array();
+  if (drush_get_option('is_member_of')) {
+    $query_parts[] = 'RELS_EXT_isMemberOf_uri_t' . ':"' . drush_get_option('is_member_of') . '"';
+  }
   if (drush_get_option('collection')) {
     $query_parts[] = 'RELS_EXT_isMemberOfCollection_uri_t' . ':"' . drush_get_option('collection') . '"';
   }
@@ -288,6 +357,7 @@ function drush_islandora_datastream_crud_fetch_datastreams() {
       "continue?",
       array('!dir' => $datastreams_directory)))) {
       drush_user_abort(dt('Exiting, no datastreams fetched.'));
+      exit;
     }
   }
   else {
@@ -298,6 +368,7 @@ function drush_islandora_datastream_crud_fetch_datastreams() {
     }
     else {
       drush_user_abort(dt('Exiting, no datastreams fetched.'));
+      exit;
     }
   }
 
@@ -316,7 +387,7 @@ function drush_islandora_datastream_crud_fetch_datastreams() {
     }
     else {
       drush_log(dt("Datastream !dsid not retrieved for object !pid",
-        array('!dsid' => $dsid, '!pid' => $pid)), 'error');
+        array('!dsid' => $dsid, '!pid' => $pid)), 'warning');
     }
   }
 }
@@ -364,6 +435,26 @@ function drush_islandora_datastream_crud_push_datastreams() {
         array('!pid_file' => $pid_file)));
     }
   }
+
+  // We only provide the option to generate DC from datastream files that
+  // end in .xml. We need to get one such fileaname so we can determine
+  // which DSID we are generating the DC from.
+  $regenerate_dc = FALSE;
+  $xml_files = array_slice(array_filter(glob($source_directory .
+    DIRECTORY_SEPARATOR . '*.xml'), 'is_file'), 0, 1);
+  if (count($xml_files) === 1) {
+    // Note: https://github.com/mjordan/islandora_datastream_crud/issues/33
+    // may make separator not be an _.
+    list($namespace, $restofthepid, $dsid) = explode('_', pathinfo($xml_files[0], PATHINFO_FILENAME));
+
+    if (drush_get_option('update_dc', 1)) {
+      if (drush_confirm(dt("Do you want to update each object's DC datastream using the new !dsid?",
+        array('!dsid' => $dsid)))) {
+        $regenerate_dc = TRUE;
+      }
+    }
+  }
+
   foreach (glob("$source_directory/*") as $filepath) {
     if (drush_get_option('pause')) {
       sleep(drush_get_option('pause'));
@@ -371,7 +462,7 @@ function drush_islandora_datastream_crud_push_datastreams() {
     if (drush_get_option('pid_file')) {
       if ($pid = islandora_datastream_crud_dsfilename_to_pid($filepath)) {
         if (in_array($pid, $pids)) {
-          islandora_datastream_crud_push_datastream($filepath);
+          islandora_datastream_crud_push_datastream($filepath, $regenerate_dc);
         }
       }
       else {
@@ -379,7 +470,7 @@ function drush_islandora_datastream_crud_push_datastreams() {
       }
     }
     else {
-      islandora_datastream_crud_push_datastream($filepath);
+      islandora_datastream_crud_push_datastream($filepath, $regenerate_dc);
     }
   }
 }
@@ -392,11 +483,16 @@ function drush_islandora_datastream_crud_push_datastreams() {
  */
 function drush_islandora_datastream_crud_delete_datastreams() {
   $dsid = drush_get_option('dsid');
+  if ($dsid == 'DC') {
+    drush_user_abort(dt('DC is a required datastream and cannot be deleted.'));
+    exit;
+  }
   if (!drush_confirm(dt("You are about to delete (purge) the !dsid " .
     "datastream from a set of objects in your repository. This action " .
     "cannot be undone. Do you want to want to continue?",
     array('!dsid' => drush_get_option('dsid'))))) {
     drush_user_abort(dt('Exiting, no datastreams deleted.'));
+    exit;
   }
 
   module_load_include('inc', 'islandora_datastream_crud', 'includes/utilities');
@@ -426,6 +522,7 @@ function drush_islandora_datastream_crud_generate_derivatives() {
     "cannot be undone. Do you want to want to continue?",
     array('!num' => count($pids), '!dsid' => $dsid)))) {
     drush_user_abort(dt('Exiting, no derivatives generated.'));
+    exit;
   }
 
   module_load_include('inc', 'islandora', 'includes/derivatives');
@@ -461,6 +558,101 @@ function drush_islandora_datastream_crud_generate_derivatives() {
         foreach ($message['messages'] as $ds_message) {
           drush_set_error('DERIVATIVE_NOT_GENERATED', strip_tags(dt($ds_message['message'], $ds_message['message_sub'])));
         }
+      }
+    }
+  }
+}
+
+/**
+ * Updates object properties.
+ */
+function drush_islandora_datastream_crud_update_object_properties() {
+  module_load_include('inc', 'islandora_datastream_crud', 'includes/utilities');
+  $pids = islandora_datastream_crud_read_pid_file(drush_get_option('pid_file'));
+
+  $confirmation_message = '';
+  $props = array();
+  if (drush_get_option('owner')) {
+    $props['owner'] = drush_get_option('owner');
+    $confirmation_message = 'owner, ';
+  }
+  if (drush_get_option('state')) {
+    $props['state'] = drush_get_option('state');
+    $confirmation_message .= 'state, ';
+  }
+
+  if (drush_get_option('update_object_label')) {
+    $confirmation_message .= 'label';
+  }
+  $confirmation_message = rtrim($confirmation_message, " ,");
+
+  if (!drush_confirm(dt("You are about to change the following properties" .
+    " of !num objects in your repository: !properties. This action" .
+    " cannot be undone. Do you want to want to continue?",
+    array('!num' => count($pids), '!properties' => $confirmation_message)))) {
+    drush_user_abort(dt('Exiting, no objects updated.'));
+    exit;
+  }
+
+  if (!count($pids)) {
+    drush_set_error('NO_PIDS_IN_PID_FILE',
+    dt('The specified PID file (!pid_file) contains no PIDS.',
+      array('!pid_file' => $pid_file)));
+  }
+  foreach ($pids as $pid) {
+    if (drush_get_option('pause')) {
+      sleep(drush_get_option('pause'));
+    }
+    // Load the object.
+    if (!$object = islandora_object_load($pid)) {
+      drush_set_error('IBD_OBJECT_NOT_FOUND',
+        dt('The specified object (!pid) does not exist or is not accessible.',
+          array('!pid' => $pid)));
+      continue;
+    }
+
+    // Update the object's properties.
+    islandora_datastream_crud_update_object_properties($object, $props);
+  }
+}
+
+/**
+ * Validate function for islandora_datastream_crud_update_object_properties().
+ */
+function drush_islandora_datastream_crud_update_object_properties_validate() {
+  if (drush_get_option('state') &&
+    !in_array(drush_get_option('state'), array('A', 'I', 'D'))) {
+    drush_set_error('INVALID_OBJECT_STATE_PROVIDED', NULL, dt("Value of the --state option must be one of 'A', 'I', or 'D'. "));
+  }
+}
+
+/**
+ * Implements hook_islandora_derivative_alter().
+ */
+function islandora_datastream_crud_islandora_derivative_alter(&$derivatives, AbstractObject $object) {
+  if (drush_get_option('dest_dsids', FALSE)) {
+    $dsid_list = drush_get_option('dest_dsids');
+    $dsid_list = rtrim($dsid_list, ',');
+    $dsids = explode(',', $dsid_list);
+    foreach ($dsids as &$dsid) {
+      $dsid = trim($dsid);
+    }
+    foreach ($derivatives as $key => $derivative) {
+      if (!in_array($derivative['destination_dsid'], $dsids)) {
+        unset($derivatives[$key]);
+      }
+    }
+  }
+  if (drush_get_option('skip_dsids', FALSE)) {
+    $dsid_list = drush_get_option('skip_dsids');
+    $dsid_list = rtrim($dsid_list, ',');
+    $dsids = explode(',', $dsid_list);
+    foreach ($dsids as &$dsid) {
+      $dsid = trim($dsid);
+    }
+    foreach ($derivatives as $key => $derivative) {
+      if (in_array($derivative['destination_dsid'], $dsids)) {
+        unset($derivatives[$key]);
       }
     }
   }

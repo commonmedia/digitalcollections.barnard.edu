@@ -20,6 +20,7 @@ function islandora_datastream_crud_query_solr($query) {
   $pids = array();
   $query_processor = new IslandoraSolrQueryProcessor();
   $query_processor->solrQuery = $query;
+  $query_processor->solrParams['fl'] = 'PID';
   // Some silly number.
   $query_processor->solrLimit = '1000000';
   $query_processor->executeQuery(FALSE);
@@ -48,7 +49,7 @@ function islandora_datastream_crud_query_solr($query) {
  */
 function islandora_datastream_crud_retrieve_datastream($pid, $dsid, $dir) {
   if (!islandora_object_load($pid)) {
-    drush_set_error('IBD_COLLECTION_NOT_FOUND',
+    drush_set_error('OBJECT_DOES_NOT_EXIST',
       dt('The specified object (!pid) does not exist or is not accessible.',
       array('!pid' => $pid)));
     return FALSE;
@@ -89,6 +90,11 @@ function islandora_datastream_crud_retrieve_datastream($pid, $dsid, $dir) {
       $ds->getContent($path);
       return TRUE;
     }
+    else {
+      drush_log(dt("Object !pid does not have a !dsid datastream",
+        array('!dsid' => $dsid, '!pid' => $pid)), 'status');
+      return FALSE;
+    }
   }
 }
 
@@ -98,11 +104,13 @@ function islandora_datastream_crud_retrieve_datastream($pid, $dsid, $dir) {
  *
  * @param string $ds_path
  *   The absolute path to the datastream content.
+ * @param bool $regenerate_dc
+ *   Whether or not to regenerate DC from pushed datastreams.
  *
  * @return string|bool
  *   The PID of the object the datastream was added to, FALSE otherwise.
  */
-function islandora_datastream_crud_push_datastream($ds_path) {
+function islandora_datastream_crud_push_datastream($ds_path, $regenerate_dc = FALSE) {
   if (drush_get_option('datastreams_revert')) {
     $version_data_path = drush_get_option('datastreams_source_directory') .
       DIRECTORY_SEPARATOR . 'version_data.log';
@@ -114,8 +122,9 @@ function islandora_datastream_crud_push_datastream($ds_path) {
     }
   }
   $ds_filename = pathinfo($ds_path, PATHINFO_FILENAME);
+  // Get the datastream ID from the end of the filename.
   list($namespace, $number, $dsid) = explode('_', $ds_filename);
-  if (!$pid = islandora_datastream_crud_dsfilename_to_pid($ds_filename)) {
+  if (!$pid = islandora_datastream_crud_dsfilename_to_pid($ds_path)) {
     return FALSE;
   }
   module_load_include('inc', 'islandora', 'includes/utilities');
@@ -147,21 +156,43 @@ function islandora_datastream_crud_push_datastream($ds_path) {
     if (drush_get_option('datastreams_label')) {
       $ds->label = drush_get_option('datastreams_label');
     }
-    // If we're reverting, use the previous version's mimetypeand label.
+    // If we're reverting, use the previous version's mimetype and label.
     if (drush_get_option('datastreams_revert')) {
       $ds->mimeType = $version_data[$ds_filename]['mimetype'];
       $ds->label = $version_data[$ds_filename]['label'];
     }
+    // Update object label from DC if specified.
+    if ((drush_get_option('update_object_label')) AND ($dsid == 'DC')) {
+      $dublincore = file_get_contents($ds_path);
+      $dc_xml = new SimpleXmlElement($dublincore);
+      $namespaces = $dc_xml->getNameSpaces(TRUE);
+      $dc = $dc_xml->children($namespaces['dc']);
+      $new_title = $dc->title;
+      if ($new_title != $object->label) {
+        $old_title = $object->label;
+        $object->label = $new_title;
+        islandora_datastream_crud_write_crudlog($pid, $dsid, 'Object label updated from "' . $old_title . '" to "' . $new_title . '"');
+      }
+    }
+
     try {
       $object->ingestDatastream($ds);
       drush_log(dt("!dsid datastream pushed to object !pid", array('!dsid' => $dsid, '!pid' => $pid)), 'ok');
       islandora_datastream_crud_write_crudlog($pid, $dsid, 'pushed');
+      if ($regenerate_dc) {
+        if (islandora_datastream_crud_regenerate_dc($object, $dsid)) {
+          drush_log(dt("DC datastream for object !pid regenerated from !dsid", array('!dsid' => $dsid, '!pid' => $pid)), 'ok');
+        }
+        else {
+          drush_log(dt("DC datastream for object !pid not regenerated from !dsid", array('!dsid' => $dsid, '!pid' => $pid)), 'error');
+        }
+      }
       return $pid;
     }
     catch (Exception $e) {
       drush_log(dt("!dsid datastream could not be pushed to object !pid; details below",
         array('!dsid' => $dsid, '!pid' => $pid)), 'error');
-      islandora_datastream_crud_write_crudlog($pid, $dsid, 'not pushed');
+      islandora_datastream_crud_write_crudlog($object->id, $dsid, 'not pushed');
       drush_log($e->getMessage(), 'error');
       return FALSE;
     }
@@ -190,23 +221,24 @@ function islandora_datastream_crud_delete_datastream($pid, $dsid) {
   drupal_static_reset('islandora_get_tuque_connection');
 
   if (!islandora_object_load($pid)) {
-    drush_set_error('IBD_COLLECTION_NOT_FOUND',
+    drush_set_error('COLLECTION_NOT_FOUND',
       dt('The specified object (!pid) does not exist or is not accessible.',
       array('!pid' => $pid)));
     return FALSE;
   }
   else {
     $object = islandora_object_load($pid);
+    if (!isset($object[$dsid])) {
+      drush_log(dt("!dsid datastream not found in object !pid", array('!dsid' => $dsid, '!pid' => $pid)), 'error');
+      islandora_datastream_crud_write_crudlog($pid, $dsid, 'not found');
+      return FALSE;
+    }
+
     try {
       if ($object->purgeDatastream($dsid)) {
         drush_log(dt("!dsid datastream purged from object !pid", array('!dsid' => $dsid, '!pid' => $pid)), 'ok');
         islandora_datastream_crud_write_crudlog($pid, $dsid, 'deleted');
         return TRUE;
-      }
-      else {
-        drush_log(dt("!dsid datastream not purged from object !pid", array('!dsid' => $dsid, '!pid' => $pid)), 'error');
-        islandora_datastream_crud_write_crudlog($pid, $dsid, 'not deleted');
-        return FALSE;
       }
     }
     catch (Exception $e) {
@@ -217,6 +249,171 @@ function islandora_datastream_crud_delete_datastream($pid, $dsid) {
       return FALSE;
     }
   }
+}
+
+/**
+ * Updates one or more object properties.
+ *
+ * @param object $object
+ *   The object to update.
+ * @param array $props
+ *   An associative array of the properties to update.
+ */
+function islandora_datastream_crud_update_object_properties($object, $props) {
+  if (isset($props['state'])) {
+    if ($props['state'] != $object->state) {
+      $object->state = $props['state'];
+      drush_log(dt("State for object !pid updated to !state", array('!pid' => $object->id, '!state' => $props['state'])), 'ok');
+      islandora_datastream_crud_write_crudlog($pid, $props['state'], 'Object state updated');
+    }
+    else {
+      drush_log(dt("State for object !pid not updated since !state is both the new and old state",
+        array('!pid' => $object->id, '!state' => $props['state'])), 'warning');
+      islandora_datastream_crud_write_crudlog($pid, $props['state'], 'Object state not updated since old and new are the same');
+    }
+  }
+  if (isset($props['owner'])) {
+    if ($props['owner'] != $object->owner) {
+      $object->owner = $props['owner'];
+      drush_log(dt("Owner for object !pid updated to !owner", array('!pid' => $object->id, '!owner' => $props['owner'])), 'ok');
+      islandora_datastream_crud_write_crudlog($pid, $props['owner'], 'Object owner updated');
+    }
+    else {
+      drush_log(dt("Owner for object !pid not updated since !owner is both the new and old owner",
+        array('!pid' => $object->id, '!owner' => $props['owner'])), 'warning');
+      islandora_datastream_crud_write_crudlog($pid, $props['owner'], 'Object owner not updated since old and new are the same');
+    }
+  }
+
+  if (drush_get_option('update_object_label')) {
+    $dsid = drush_get_option('source_dsid', 'MODS');
+    $xpath_exp = drush_get_option('source_xpath', '//mods:titleInfo/mods:title');
+
+    $ds_xml = $object[$dsid]->content;
+    if ($label = islandora_datastream_crud_get_label_from_xml($xpath_exp, $ds_xml)) {
+      if ($object->label != $label) {
+        $object->label = $label;
+        drush_log(dt("Label for object !pid updated to !label", array('!pid' => $object->id, '!label' => $label)), 'ok');
+        islandora_datastream_crud_write_crudlog($pid, $label, 'Label updated');
+      }
+      else {
+        drush_log(dt('Label for object !pid not updated since "!label" is the same',
+          array('!pid' => $object->id, '!label' => $label)), 'warning');
+        islandora_datastream_crud_write_crudlog($pid, $label, 'Label not updated since old and new are the same');
+      }
+    }
+    else {
+      drush_set_error('CANNOT_GET_LABEL_FROM_DATASTREAM', 'Cannot get label from datastream, object label not updated.');
+    }
+  }
+}
+
+/**
+ * Extracts string value from a datastream using an XPath expression.
+ *
+ * @param string $xpath_exp
+ *   The XPath expression.
+ * @param string $xml
+ *   A serialized XML document, e.g., coming from a MODS or DC
+ *   datastream content.
+ *
+ * @return string|FALSE
+ *   The string value of result from the XPath, or FALSE.
+ */
+function islandora_datastream_crud_get_label_from_xml($xpath_exp, $xml) {
+  $concat_string = drush_get_option('concat_string', ' ');
+  $dom = new DOMDocument();
+  $dom->loadXML($xml);
+  $xpath = new DOMXPath($dom);
+
+  $namespaces = islandora_datastream_crud_get_namespaces($xml);
+  foreach ($namespaces as $namespace_prefix => $namespace_uri) {
+    $xpath->registerNamespace($namespace_prefix, $namespace_uri);
+  }
+
+  $elements = $xpath->query($xpath_exp);
+  if ($elements->length) {
+    $label = '';
+    foreach ($elements as $element) {
+      $label .= $concat_string . $element->nodeValue;
+    }
+    $label = ltrim($label, $concat_string);
+  }
+  else {
+    return FALSE;
+  }
+
+  if (strlen($label)) {
+    return trim($label);
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/**
+ * Regenerates DC from the specified datastream.
+ *
+ * @param object $object
+ *   The Islandora object.
+ * @param string $source_dsid
+ *   The ID of the datastream to use as the source of the DC.
+ *
+ * @return bool
+ *   TRUE if the DC was regenerated and replaced, FALSE otherwise.
+ */
+function islandora_datastream_crud_regenerate_dc($object, $source_dsid) {
+  $xslt_path = drush_get_option(
+    'dc_transform',
+    drupal_get_path('module', 'xml_forms') . '/builder/transforms/mods_to_dc.xsl'
+  );
+  if (!file_exists($xslt_path)) {
+    drush_log(dt('The specified XSLT stylesheet (!xslt_path) does not exist.',
+      array('!xslt_path' => $xslt_path)), 'error');
+    return FALSE;
+  }
+
+  if (!isset($object[$source_dsid])) {
+    drush_log(dt('DC cannot be regenerated because the specified datastream (!dsid) does not exist.',
+      array('!dsid' => $source_dsid)), 'error');
+    return FALSE;
+  }
+
+  try {
+    $xsl_doc = new DOMDocument();
+    $xsl_doc->load(realpath($xslt_path));
+    $xml_doc = new DOMDocument();
+    $xml_doc->loadXML($object[$source_dsid]->content);
+    $xslt_proc = new XSLTProcessor();
+    $xslt_proc->importStylesheet($xsl_doc);
+    $dc_xml = $xslt_proc->transformToXML($xml_doc);
+    $object['DC']->setContentFromString($dc_xml);
+  }
+  catch (Exception $e) {
+    drush_log(dt("DC cannot be regenerated for !pid from its !dsid datastream because of an XSLT problem; details below",
+      array('!dsid' => $dsid, '!pid' => $object->id)), 'error');
+    islandora_datastream_crud_write_crudlog($object->id, $dsid, 'DC not regenerated');
+    drush_log($e->getMessage(), 'error');
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+/**
+ * Get the namespaces registered in a serialized XML document.
+ *
+ * @param string $xml
+ *   The serialized XML document.
+ *
+ * @return array
+ *   An associative array containing a prefix => URI pair
+ *   for each registered namespace.
+ */
+function islandora_datastream_crud_get_namespaces($xml) {
+  $simple_xml = new SimpleXMLElement($xml);
+  $namespaces = $simple_xml->getNamespaces(TRUE);
+  return $namespaces;
 }
 
 /**

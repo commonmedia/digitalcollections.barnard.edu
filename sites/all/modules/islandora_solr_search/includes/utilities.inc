@@ -302,6 +302,8 @@ function islandora_solr_prepare_solr_doc($object_results) {
  *   Returns the same array but with prepared Solr field values.
  */
 function islandora_solr_prepare_solr_results($solr_results) {
+  module_load_include('inc', 'islandora_solr', 'includes/field_truncation');
+
   $object_results = $solr_results['response']['objects'];
   $highlighting = isset($solr_results['highlighting']) ? $solr_results['highlighting'] : array();
   $fields_all = islandora_solr_get_fields('result_fields', FALSE);
@@ -364,11 +366,20 @@ function islandora_solr_prepare_solr_results($solr_results) {
           $tf =& $truncate_length[$field];
           $wordsafe = FALSE;
           $min_wordsafe_length = 1;
+
           if (isset($tf['wordsafe'])) {
             $wordsafe = $tf['wordsafe'];
             $min_wordsafe_length = $tf['wordsafe_length'];
           }
-          $val_val = truncate_utf8($val_val, $tf['maximum_length'], $wordsafe, $tf['add_ellipsis'], $min_wordsafe_length);
+
+          $val_val = (string) new IslandoraSolrFieldTruncation(
+            $val_val,
+            $tf['maximum_length'],
+            $wordsafe,
+            $tf['add_ellipsis'],
+            $min_wordsafe_length
+          );
+
         };
         array_walk($value, $truncate_func);
       }
@@ -486,6 +497,8 @@ function islandora_solr_islandora_basic_collection_backend_callable($collection_
  *   The updated display values.
  */
 function islandora_solr_truncate_field_display($display_values, $max_length, $add_ellipsis, $word_safe, $wordsafe_length, $separator, $link_options = NULL) {
+  module_load_include('inc', 'islandora_solr', 'includes/field_truncation');
+
   $updated_display_values = $display_values;
   $separator = filter_xss($separator, islandora_solr_get_filter_tags());
 
@@ -509,8 +522,15 @@ function islandora_solr_truncate_field_display($display_values, $max_length, $ad
         if ($add_ellipsis) {
           $truncation_length = max($truncation_length, drupal_strlen(t('...')));
         }
-        $current_value = truncate_utf8($current_value, $truncation_length, $word_safe, $add_ellipsis, $wordsafe_length);
-        $truncated_list[] = $current_value;
+
+        $truncated_list[] = (string) new IslandoraSolrFieldTruncation(
+          $current_value,
+          $truncation_length,
+          $word_safe,
+          $add_ellipsis,
+          $wordsafe_length
+        );
+
         break;
       }
     }
@@ -558,6 +578,10 @@ function islandora_solr_truncate_field_display($display_values, $max_length, $ad
     $updated_display_values .= '</span>';
 
   }
+  else {
+    $updated_display_values = '';
+  }
+
   return $updated_display_values;
 };
 
@@ -575,11 +599,42 @@ function islandora_solr_is_date_field($solr_field) {
     'org.apache.solr.schema.DateField',
     'org.apache.solr.schema.TrieDateField',
   );
+  return islandora_solr_is_typed_field($solr_field, $date_types);
+}
+
+/**
+ * Check the field type against boolean-type fields.
+ *
+ * @param string $solr_field
+ *   The Solr field name.
+ *
+ * @return bool
+ *   Whether the field is a boolean type.
+ */
+function islandora_solr_is_boolean_field($solr_field) {
+  $bool_types = array(
+    'org.apache.solr.schema.BoolField',
+  );
+  return islandora_solr_is_typed_field($solr_field, $bool_types);
+}
+
+/**
+ * Check the field type against an array of types.
+ *
+ * @param string $solr_field
+ *   The Solr field name.
+ * @param array $types
+ *   A list of Solr field type classes to check against.
+ *
+ * @return bool
+ *   Whether the field type is in the provided list.
+ */
+function islandora_solr_is_typed_field($solr_field, $types) {
   $luke_result = islandora_solr_get_luke(NULL, $solr_field);
   $type = (isset($luke_result['fields'][$solr_field]['type']) ? $luke_result['fields'][$solr_field]['type'] : FALSE);
   if ($type) {
     $class = islandora_solr_get_type_class($type);
-    return in_array($class, $date_types);
+    return in_array($class, $types);
   }
   return FALSE;
 }

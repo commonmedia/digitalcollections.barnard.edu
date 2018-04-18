@@ -131,8 +131,9 @@ class islandora_solr_views_query extends views_plugin_query {
         module_load_include('inc', 'islandora_solr', 'includes/utilities');
         // Populate sorting parameters.
         foreach ($this->orderby as $field => $order) {
-          $params['sort'][] = islandora_solr_lesser_escape($field) . ' ' . $order;
+          $sortFields[] = islandora_solr_lesser_escape($field) . ' ' . $order;
         }
+        $params['sort'][] = implode(",", $sortFields);
       }
 
       // Set query.
@@ -161,7 +162,8 @@ class islandora_solr_views_query extends views_plugin_query {
 
       // Add query (defaults to *:*).
       $islandora_solr_query->buildQuery($query, $params);
-
+      // Need to add the fl in manually as buildQuery does not account for it.
+      $islandora_solr_query->solrParams['fl'] = $params['fl'];
       // Add solr limit.
       $islandora_solr_query->solrLimit = $params['rows'];
       // Add solr start.
